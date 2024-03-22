@@ -1,0 +1,64 @@
+import requests 
+from bs4 import BeautifulSoup
+import pandas as pd
+import re
+
+
+def parse_strlist(sl):
+    clean = re.sub("[\[\],\s]","",sl)
+    splitted = re.split("[\'\"]",clean)
+    values_only = [s for s in splitted if s != '']
+    return values_only
+
+def get_datalist(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    scripts = soup.find_all('script')
+    for script in scripts:
+        if 'd = new Dygraph(document.getElementById("container")' in script.text:
+            StrList = script.text
+            StrList = '[[' + StrList.split('[[')[-1]
+            StrList = StrList.split(']]')[0] +']]'
+            StrList = StrList.replace("new Date(", '').replace(')','')
+            dataList = parse_strlist(StrList)
+    
+    return dataList
+
+
+def make_csv(url1, url2, chain):
+    fees_datalist = get_datalist(url1)
+    print(len(fees_datalist))
+    print(fees_datalist[0])
+    print(type(fees_datalist[0]))
+    
+    txs_datalist = get_datalist(url2)
+    print(len(txs_datalist))
+
+    date = []
+    fee = []
+    txs = []
+    
+    for each in fees_datalist:
+        if (fees_datalist.index(each) % 2) == 0:
+            date.append(each)
+        else:
+            fee.append(each)
+            
+    for each in txs_datalist:
+        if (txs_datalist.index(each) % 2) == 0:
+            date.append(each)
+        else:
+            txs.append(each)
+
+    
+    # then create the dataframe
+    df = pd.DataFrame(list(zip(date, fee)), columns=["Date","Avg Fee"])
+    df.to_csv("/Users/phoebeliu/Documents/Bitinfochart_data/" + chain + "fees.csv", index=False)
+    
+     # then create the dataframe
+    df2 = pd.DataFrame(list(zip(date, txs)), columns=["Date","Transactions"])
+    df2.to_csv("/Users/phoebeliu/Documents/Bitinfochart_data/" + chain + "transactions.csv", index=False)
+    
+    return df
+ 
